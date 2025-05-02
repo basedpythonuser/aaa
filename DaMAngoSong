@@ -1,0 +1,87 @@
+local player = game.Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+local hum = char:WaitForChild("Humanoid")
+
+for _, desc in pairs(game:GetDescendants()) do
+	if desc:IsA("Model") then
+		print(desc.Name)
+
+		local headbox = Instance.new("BoxHandleAdornment")
+		headbox.Name = "HeadBox"
+		headbox.Adornee = char.Head
+		headbox.Size = Vector3.new(1.5, 1.5, 1.5)
+		headbox.Color3 = Color3.new(1, 0, 0)
+		headbox.Transparency = 0.8
+		headbox.ZIndex = 10
+		headbox.AlwaysOnTop = true
+		headbox.Parent = char
+
+		local torsobox = Instance.new("BoxHandleAdornment")
+		torsobox.Name = "TorsoBox"
+		torsobox.Adornee = char.Torso
+		torsobox.Size = Vector3.new(2, 2, 1)
+		torsobox.Color3 = Color3.new(1, 0, 0)
+		torsobox.Transparency = 0.8
+		torsobox.ZIndex = 10
+		torsobox.AlwaysOnTop = true
+		torsobox.Parent = char
+
+		local rlbox = Instance.new("BoxHandleAdornment")
+		rlbox.Name = "RLBox"
+		rlbox.Adornee = char["Right Leg"]
+		rlbox.Size = Vector3.new(1, 2, 1)
+		rlbox.Color3 = Color3.new(1, 0, 0)
+		rlbox.Transparency = 0.8
+		rlbox.ZIndex = 10
+		rlbox.AlwaysOnTop = true
+		rlbox.Parent = char
+
+		local llbox = Instance.new("BoxHandleAdornment")
+		llbox.Name = "LLBox"
+		llbox.Adornee = char["Left Leg"]
+		llbox.Size = Vector3.new(1, 2, 1)
+		llbox.Color3 = Color3.new(1, 0, 0)
+		llbox.Transparency = 0.8
+		llbox.ZIndex = 10
+		llbox.AlwaysOnTop = true
+		llbox.Parent = char
+
+		local labox = Instance.new("BoxHandleAdornment")
+		labox.Name = "LABox"
+		labox.Adornee = char["Left Arm"]
+		labox.Size = Vector3.new(1, 2, 1)
+		labox.Color3 = Color3.new(1, 0, 0)
+		labox.Transparency = 0.8
+		labox.ZIndex = 10
+		labox.AlwaysOnTop = true
+		labox.Parent = char
+
+		local rabox = Instance.new("BoxHandleAdornment")
+		rabox.Name = "RABox"
+		rabox.Adornee = char["Right Arm"]
+		rabox.Size = Vector3.new(1, 2, 1)
+		rabox.Color3 = Color3.new(1, 0, 0)
+		rabox.Transparency = 0.8
+		rabox.ZIndex = 10
+		rabox.AlwaysOnTop = true
+		rabox.Parent = char
+
+		local mainbox = Instance.new("BoxHandleAdornment")
+		mainbox.Name = "EspBox"
+		mainbox.Adornee = char.HumanoidRootPart
+		mainbox.Size = Vector3.new(4, 6, 2)
+		mainbox.Color3 = Color3.new(0, 1, 0)
+		mainbox.Transparency = 0.9
+		mainbox.ZIndex = 8
+		mainbox.AlwaysOnTop = true
+		mainbox.Parent = char
+
+		hum.Died:Connect(function()
+			for _, espdestroy in pairs(char:GetChildren()) do
+				if espdestroy:IsA("BoxHandleAdornment") then
+					espdestroy:Destroy()
+				end
+			end
+		end)
+	end
+end
