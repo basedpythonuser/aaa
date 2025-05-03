@@ -1,0 +1,252 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local localPlayer = Players.LocalPlayer
+-- Wait for PlayerGui to exist
+local playerGui = localPlayer:WaitForChild("PlayerGui")
+
+-- Don't run script in Studio editing mode if LocalPlayer doesn't exist
+if not localPlayer or not RunService:IsRunning() then
+	return
+end
+
+-- Function to safely get character
+local function getCharacter(player)
+	return player.Character or player.CharacterAdded:Wait()
+end
+
+-- Create GUI
+local gui = Instance.new("ScreenGui")
+gui.Name = "EspGui"
+gui.Enabled = true
+gui.ResetOnSpawn = false -- Keep GUI across spawns
+gui.Parent = playerGui
+
+local button = Instance.new("TextButton")
+button.Name = "ToggleButton"
+button.Text = "Toggle ESP"
+button.TextScaled = true
+button.Font = Enum.Font.FredokaOne
+button.Parent = gui
+button.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+button.Position = UDim2.new(0, 10, 0, 10) -- Add some padding
+button.AnchorPoint = Vector2.new(0, 0)
+button.Size = UDim2.new(0, 150, 0, 50)
+
+local corner = Instance.new("UICorner")
+corner.Parent = button
+
+local uistroke = Instance.new("UIStroke")
+uistroke.Parent = button
+uistroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+uistroke.Thickness = 3
+
+local button2 = Instance.new("TextButton")
+button2.Name = "CleanupButton"
+button2.Text = "Refresh ESP"
+button2.Parent = gui
+button2.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+button2.TextScaled = true
+button2.Font = Enum.Font.FredokaOne
+button.Position = UDim2.new(0, 10, 0, 70) -- Position below first button
+button2.AnchorPoint = Vector2.new(0, 0)
+button2.Size = UDim2.new(0, 150, 0, 50)
+
+local corner2 = Instance.new("UICorner")
+corner2.Parent = button2
+
+local uistroke2 = Instance.new("UIStroke")
+uistroke2.Parent = button2 -- Corrected parent
+uistroke2.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+uistroke2.Thickness = 3
+
+-- ESP State
+local espVisible = true
+local characterConnections = {} -- Store connections to disconnect later if needed
+
+-- Function to create ESP boxes for a character
+local function esp(targetCharacter)
+	if not targetCharacter then return end
+
+	-- Check for essential parts first
+	local head = targetCharacter:FindFirstChild("Head")
+	local torso = targetCharacter:FindFirstChild("Torso") -- R15 uses UpperTorso/LowerTorso, R6 uses Torso
+	local hrp = targetCharacter:FindFirstChild("HumanoidRootPart")
+	local humanoid = targetCharacter:FindFirstChildOfClass("Humanoid")
+
+	if not head or not hrp or not humanoid then
+		-- print("ESP failed for", targetCharacter.Name, ": Missing essential parts")
+		return
+	end
+
+	-- Use UpperTorso for R15 if Torso doesn't exist
+	if not torso then
+		torso = targetCharacter:FindFirstChild("UpperTorso")
+	end
+	if not torso then
+		-- print("ESP failed for", targetCharacter.Name, ": Missing Torso/UpperTorso")
+		return -- Still can't find a torso part
+	end
+
+	-- Find limbs (handle R6/R15 differences)
+	local rightLeg = targetCharacter:FindFirstChild("Right Leg") or targetCharacter:FindFirstChild("RightLowerLeg")
+	local leftLeg = targetCharacter:FindFirstChild("Left Leg") or targetCharacter:FindFirstChild("LeftLowerLeg")
+	local rightArm = targetCharacter:FindFirstChild("Right Arm") or targetCharacter:FindFirstChild("RightUpperArm")
+	local leftArm = targetCharacter:FindFirstChild("Left Arm") or targetCharacter:FindFirstChild("LeftUpperArm")
+
+	-- Helper to create a box
+	local function createBox(name, adornee, size, color, parent)
+		if not adornee then return end -- Don't create if part not found
+		local box = Instance.new("BoxHandleAdornment")
+		box.Name = name
+		box.Adornee = adornee
+		box.Size = size
+		box.Color3 = color
+		box.Transparency = 0.6 -- Slightly less transparent
+		box.ZIndex = 10
+		box.AlwaysOnTop = true
+		box.Visible = espVisible -- Set initial visibility
+		box.Parent = parent
+	end
+
+	-- Create boxes, parenting to the character model
+	createBox("HeadBox", head, Vector3.new(1.5, 1.5, 1.5), Color3.new(1, 0, 0), targetCharacter)
+	createBox("TorsoBox", torso, Vector3.new(2, 2, 1), Color3.new(1, 0, 0), targetCharacter)
+	createBox("RLBox", rightLeg, Vector3.new(1, 2, 1), Color3.new(1, 0, 0), targetCharacter)
+	createBox("LLBox", leftLeg, Vector3.new(1, 2, 1), Color3.new(1, 0, 0), targetCharacter)
+	createBox("RABox", rightArm, Vector3.new(1, 2, 1), Color3.new(1, 0, 0), targetCharacter)
+	createBox("LABox", leftArm, Vector3.new(1, 2, 1), Color3.new(1, 0, 0), targetCharacter)
+	createBox("EspBox", hrp, Vector3.new(4, 6, 2), Color3.new(0, 1, 1), targetCharacter)
+
+	-- print("ESP created for", targetCharacter.Name)
+end
+
+-- Function to destroy ESP boxes for a character
+local function destroyEspBoxesForCharacter(targetCharacter)
+	if not targetCharacter then return end
+	for _, child in targetCharacter:GetChildren() do
+		if child:IsA("BoxHandleAdornment") then
+			-- Optional: Add a more specific check if needed (e.g., by name)
+			-- if child.Name:match("Box$") then -- Example check
+			child:Destroy()
+			-- end
+		end
+	end
+	-- print("ESP destroyed for", targetCharacter.Name)
+end
+
+-- Function to manage ESP for a specific player
+local function setupEspForPlayer(player)
+	if player == localPlayer then return end -- Ignore local player
+
+	local function onCharacterAdded(character)
+		-- print("Character added for", player.Name)
+		-- Small delay to ensure parts are loaded
+		task.wait(0.1)
+		destroyEspBoxesForCharacter(character) -- Clean up any potential old boxes first
+		esp(character)
+
+		-- Store connection for CharacterRemoving
+		if character then
+			characterConnections[character] = character.AncestryChanged:Connect(function(_, parent)
+				if not parent then -- Character removed from game
+					-- print("Character removing for", player.Name)
+					destroyEspBoxesForCharacter(character)
+					if characterConnections[character] then
+						characterConnections[character]:Disconnect()
+						characterConnections[character] = nil
+					end
+				end
+			end)
+		end
+	end
+
+	-- Connect to CharacterAdded
+	characterConnections[player] = player.CharacterAdded:Connect(onCharacterAdded)
+
+	-- Run immediately if character already exists
+	if player.Character then
+		onCharacterAdded(player.Character)
+	end
+end
+
+-- Toggle Button Logic
+button.MouseButton1Click:Connect(function()
+	espVisible = not espVisible -- Toggle the state
+	button.Text = espVisible and "Toggle ESP (On)" or "Toggle ESP (Off)"
+	print("ESP Toggled:", espVisible)
+
+	for _, player in Players:GetPlayers() do
+		if player ~= localPlayer and player.Character then
+			for _, child in player.Character:GetChildren() do
+				if child:IsA("BoxHandleAdornment") then
+					child.Visible = espVisible
+				end
+			end
+		end
+	end
+end)
+
+-- Cleanup/Refresh Button Logic
+button2.MouseButton1Click:Connect(function()
+	print("Refreshing ESP...")
+	-- Destroy existing boxes
+	for _, player in Players:GetPlayers() do
+		if player ~= localPlayer and player.Character then
+			destroyEspBoxesForCharacter(player.Character)
+		end
+	end
+
+	-- Wait a frame to ensure destruction propagates if needed (usually not required)
+	-- task.wait()
+
+	-- Recreate boxes
+	for _, player in Players:GetPlayers() do
+		if player ~= localPlayer and player.Character then
+			esp(player.Character)
+		end
+	end
+	print("ESP Refreshed.")
+end)
+
+-- Initial setup for existing players
+for _, player in Players:GetPlayers() do
+	setupEspForPlayer(player)
+end
+
+-- Setup for players who join later
+Players.PlayerAdded:Connect(setupEspForPlayer)
+
+-- Cleanup connections when a player leaves
+Players.PlayerRemoving:Connect(function(player)
+	if characterConnections[player] then
+		characterConnections[player]:Disconnect()
+		characterConnections[player] = nil
+	end
+	-- Also try to clean up character-specific connections if they exist
+	if player.Character and characterConnections[player.Character] then
+		characterConnections[player.Character]:Disconnect()
+		characterConnections[player.Character] = nil
+	end
+	-- Explicitly destroy boxes for the leaving player's character if it still exists
+	if player.Character then
+		destroyEspBoxesForCharacter(player.Character)
+	end
+	-- print("Cleaned up connections for leaving player:", player.Name)
+end)
+
+-- Initial button text
+button.Text = espVisible and "Toggle ESP (On)" or "Toggle ESP (Off)"
+
+-- Clean up GUI when script is destroyed (e.g., player leaves)
+script.Destroying:Connect(function()
+	if gui then
+		gui:Destroy()
+	end
+	-- Disconnect all remaining connections
+	for key, conn in characterConnections do
+		conn:Disconnect()
+	end
+	characterConnections = {}
+	print("ESP Script Cleaned Up")
+end)
